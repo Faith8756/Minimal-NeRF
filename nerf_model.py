@@ -106,9 +106,10 @@ class NeRFNetwork(LightningModule):
         self.log('coarse_density_non_zeros', (coarse_density != 0).sum().float(), batch_size=1)
 
         # calculate coarse ray color.        
-        coarse_deltas = nerf_helpers.generate_deltas(coarse_ts)
-        coarse_weights = nerf_helpers.calculate_unnormalized_weights(coarse_density, coarse_deltas)
-        coarse_rgb_ray = nerf_helpers.estimate_ray_color(coarse_weights, coarse_rgb)
+        # coarse_deltas = nerf_helpers.generate_deltas(coarse_ts)
+        # coarse_weights = nerf_helpers.calculate_unnormalized_weights(coarse_density, coarse_deltas)
+        # coarse_rgb_ray = nerf_helpers.estimate_ray_color(coarse_weights, coarse_rgb)
+        coarse_rgb_ray = nerf_helpers.calculate_ray_color(coarse_ts,coarse_density,coarse_rgb)
 
         # sample points for fine samples.
         fine_samples, fine_ts = nerf_helpers.inverse_transform_sampling(o_rays, d_rays, coarse_weights, 
@@ -125,10 +126,11 @@ class NeRFNetwork(LightningModule):
         self.log('fine_density_non_zeros', (fine_density != 0).sum().float(), batch_size=1)
 
         # calculate fine ray color.
-        fine_deltas = nerf_helpers.generate_deltas(fine_ts)
-        fine_weights = nerf_helpers.calculate_unnormalized_weights(fine_density, fine_deltas)
-        fine_rgb_ray = nerf_helpers.estimate_ray_color(fine_weights, fine_rgb)
-        
+        # fine_deltas = nerf_helpers.generate_deltas(fine_ts)
+        # fine_weights = nerf_helpers.calculate_unnormalized_weights(fine_density, fine_deltas)
+        # fine_rgb_ray = nerf_helpers.estimate_ray_color(fine_weights, fine_rgb)
+        fine_rgb_ray = nerf_helpers.calculate_ray_color(fine_ts,fine_density,fine_rgb)
+
         return {'fine_rgb_rays': fine_rgb_ray, 'coarse_rgb_rays': coarse_rgb_ray}
         
     def configure_optimizers(self):
@@ -247,11 +249,13 @@ class SingleNeRF(LightningModule):
         # calculating coarse
         samples, ts = nerf_helpers.generate_coarse_samples(o_rays, d_rays, self.num_samples, self.near, self.far)
         density, rgb =self.network(samples, d_rays)
-        deltas = nerf_helpers.generate_deltas(ts)
+        # deltas = nerf_helpers.generate_deltas(ts)
 
-        # calculate ray color.
-        weights = nerf_helpers.calculate_unnormalized_weights(density, deltas)
-        pred_rgbs = nerf_helpers.estimate_ray_color(weights, rgb)
+        # # calculate ray color.
+        # weights = nerf_helpers.calculate_unnormalized_weights(density, deltas)
+        # pred_rgbs = nerf_helpers.estimate_ray_color(weights, rgb)
+        pred_rgbs = nerf_helpers.calculate_ray_color(ts, density, rgb)
+        
         return {'pred_rgbs': pred_rgbs, 'density': density, 'ts': ts, 
                 'samples': samples, 'deltas': deltas}
 

@@ -1,4 +1,4 @@
-"""Utility functions to help with training a NeRF model.111111111test
+"""Utility functions to help with training a NeRF model.
 
 Contains functions to generate coarse samples, ray colors,
 and inverse transform sampling. We also have functions to help
@@ -55,54 +55,70 @@ def generate_coarse_samples(o_rays: torch.Tensor, d_rays: torch.Tensor,
     samples = d_rays * ts + o_rays
     return samples, ts
 
-def generate_deltas(ts: torch.Tensor):
-    """Calculates the difference between each 'time' in ray samples.
 
-    Rays will go to infinity unless obstructed. Therefore, the delta
-    between the ts and infinity is expressed as 1e10
+# def generate_deltas(ts: torch.Tensor):
+#     """Calculates the difference between each 'time' in ray samples.
 
-    Args:
-        ts: [N x num_samples x 1] tensor of times. The values are increasing from [near,far] along
-            the num_samples dimension.
-    Returns:
-        deltas: [N x num_samples x 1]  where delta_i = t_i+1 - t_i.
-    """
+#     Rays will go to infinity unless obstructed. Therefore, the delta
+#     between the ts and infinity is expressed as 1e10
+
+#     Args:
+#         ts: [N x num_samples x 1] tensor of times. The values are increasing from [near,far] along
+#             the num_samples dimension.
+#     Returns:
+#         deltas: [N x num_samples x 1]  where delta_i = t_i+1 - t_i.
+#     """
+#     N, _, _ = ts.shape
+#     deltas = torch.cat([ts[:,1:,:] - ts[:,:-1,:], 
+#                         torch.full((N, 1, 1), 1e10, device=device)], dim=1)
+#     return deltas
+
+# def calculate_unnormalized_weights(density: torch.Tensor, deltas: torch.Tensor):
+#     """Calculate unnormalized weights for the ray color.
+
+#     Args:
+#         density: [N x num_samples x 1] of nonnegative values represnting density at each point.
+#         deltas: [N x num_samples x 1] of time deltas between previous sample and current sample.
+#     Returns: 
+#         weights: [N x num_samples x 1] tensor of weights calculated as 
+#                  w = T(1 - exp(- density * delta)).
+#     """
+#     N, s, _ = density.shape
+#     neg_delta_density = - 1 * density * deltas
+#     shifted_neg_delta_density = torch.cat((torch.zeros((N,1,1), device=device), 
+#                                           neg_delta_density[:,:-1,:]), dim=1)
+#     transmittance =  torch.exp(torch.cumsum(shifted_neg_delta_density, dim=1))
+#     weights = (1 - torch.exp(neg_delta_density)) * transmittance
+#     return weights
+
+# def estimate_ray_color(weights, rgb):
+#     """Estimates the color of a ray as a weighted average of the weights and colors.
+    
+#     Args:
+#         weights: [N x num_samples x 1] tensor of weights for each rgb color. 
+#                  Weights do not need to and should not be normalized.
+#         rgb: [N x num_samples x 3] tensor of colors at each location.
+#     Returns:
+#         ray_color: [N x 3] tensor of the color of each ray.
+#     """
+#     ray_color = torch.sum(weights * rgb, dim=1)
+#     return ray_color
+
+
+def calculate_ray_color(ts: torch.Tensor, density: torch.Tensor, rgb):
     N, _, _ = ts.shape
     deltas = torch.cat([ts[:,1:,:] - ts[:,:-1,:], 
                         torch.full((N, 1, 1), 1e10, device=device)], dim=1)
-    return deltas
-
-def calculate_unnormalized_weights(density: torch.Tensor, deltas: torch.Tensor):
-    """Calculate unnormalized weights for the ray color.
-
-    Args:
-        density: [N x num_samples x 1] of nonnegative values represnting density at each point.
-        deltas: [N x num_samples x 1] of time deltas between previous sample and current sample.
-    Returns: 
-        weights: [N x num_samples x 1] tensor of weights calculated as 
-                 w = T(1 - exp(- density * delta)).
-    """
     N, s, _ = density.shape
     neg_delta_density = - 1 * density * deltas
     shifted_neg_delta_density = torch.cat((torch.zeros((N,1,1), device=device), 
                                           neg_delta_density[:,:-1,:]), dim=1)
     transmittance =  torch.exp(torch.cumsum(shifted_neg_delta_density, dim=1))
     weights = (1 - torch.exp(neg_delta_density)) * transmittance
-    return weights
-
-def estimate_ray_color(weights, rgb):
-    """Estimates the color of a ray as a weighted average of the weights and colors.
-    
-    Args:
-        weights: [N x num_samples x 1] tensor of weights for each rgb color. 
-                 Weights do not need to and should not be normalized.
-        rgb: [N x num_samples x 3] tensor of colors at each location.
-    Returns:
-        ray_color: [N x 3] tensor of the color of each ray.
-    """
     ray_color = torch.sum(weights * rgb, dim=1)
     return ray_color
-
+    
+    
 def inverse_transform_sampling(o_rays: torch.Tensor, d_rays: torch.Tensor, weights, ts,
                                num_samples, near=2.0, far=6.0):
     """Performs inverse transform sampling according to the weights.
